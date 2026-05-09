@@ -190,13 +190,54 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
 /* ── Canvas area ── */
 .canvas-area { flex: 1; position: relative; overflow: hidden; background: #000000; cursor: grab; }
 #gl-canvas, #ov-canvas { position: absolute; top: 0; left: 0; }
+
+/* ── Mobile layout ── */
+@media (max-width: 768px) {
+  /* .app becomes the scroll container — html/body stay overflow:hidden */
+  .app {
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Canvas sticks to the top of the scrolling .app container */
+  .canvas-area {
+    flex: none;          /* CRITICAL: override desktop flex:1 */
+    width: 100vw;
+    height: 100vw;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    order: 0;            /* visually first even though it's 2nd in DOM */
+    cursor: default;
+  }
+
+  /* Panels flow below canvas in a single column */
+  #panel-left  { flex: none; width: 100%; overflow-y: visible; order: 1; }
+  #panel-right { flex: none; width: 100%; overflow-y: visible; order: 2; }
+
+  /* Hide desktop flex spacers */
+  .mob-spacer { display: none; }
+  .mob-spacer { display: none; }
+
+  /* Bigger touch targets */
+  input[type=range] { height: 4px; }
+  input[type=range]::-webkit-slider-thumb { width: 18px; height: 18px; }
+  input[type=range]::-moz-range-thumb     { width: 18px; height: 18px; }
+  input[type=range].sub-rng::-webkit-slider-thumb { width: 14px; height: 14px; }
+  input[type=range].sub-rng::-moz-range-thumb     { width: 14px; height: 14px; }
+
+  .logo-wrap { display: none; }
+}
 </style>
 </head>
 <body>
 <div class="app">
 
   <!-- ═══ LEFT PANEL ═══ -->
-  <aside class="panel">
+  <aside class="panel" id="panel-left">
     <div class="panel-inner">
 
       <div class="logo-wrap">
@@ -327,12 +368,6 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
         </div>
       </div>
 
-      <div style="flex:1"></div>
-
-      <div class="btn-group">
-        <button class="btn btn-w" id="btn-rand">Randomize</button>
-        <button class="btn btn-d" id="btn-reset">Reset to defaults</button>
-      </div>
 
     </div>
   </aside>
@@ -344,7 +379,7 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
   </main>
 
   <!-- ═══ RIGHT PANEL ═══ -->
-  <aside class="panel">
+  <aside class="panel" id="panel-right">
     <div class="panel-inner">
 
       <span class="sec">Effects</span>
@@ -499,9 +534,11 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
         <input type="range" id="s-speed" min="0.1" max="5" value="1" step="0.1">
       </div>
 
-      <div style="flex:1"></div>
+      <div class="mob-spacer" style="flex:1"></div>
 
       <div class="btn-group">
+        <button class="btn btn-w" id="btn-rand">Randomize</button>
+        <button class="btn btn-d" id="btn-reset">Reset to defaults</button>
         <button class="btn btn-d" id="btn-export">Export PNG</button>
         <button class="btn btn-d" id="btn-export-gif" disabled>Export GIF</button>
       </div>

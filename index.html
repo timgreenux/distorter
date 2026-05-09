@@ -175,7 +175,7 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
 
 /* ── Buttons ── */
 .btn-group { display: flex; flex-direction: column; gap: 8px; }
-.mob-only  { display: none; }
+.mob-only  { display: none !important; }
 .btn {
   padding: 10px 12px; border-radius: 4px; border: none;
   font-family: 'Platform', sans-serif;
@@ -228,7 +228,8 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
   /* Hide desktop flex spacers */
   .mob-spacer { display: none; }
   /* Show mobile-only buttons, hide the left panel's copies */
-  .mob-only { display: block; }
+  .mob-only { display: block !important; }
+  .reset-row.mob-only { display: flex !important; }
   #panel-left .btn-group { display: none; }
   .mob-spacer { display: none; }
 
@@ -883,6 +884,7 @@ uniform float u_outline;
 uniform float u_noise;
 uniform float u_blur;
 uniform float u_pixel;
+uniform float u_time2;
 uniform vec3  u_fg;
 uniform vec3  u_bg;
 varying vec2  v_uv;
@@ -947,9 +949,11 @@ void main() {
 
   // ── Noise Grain — per-pixel static/snow dissolution ──────
   if (u_noise > 0.0) {
-    float na  = u_noise * 0.01;
-    float gv  = h2(floor(muv * u_res) + vec2(31.7, 17.3));
-    float sur = step(na, gv);
+    float na   = u_noise * 0.01;
+    float seed = mod(floor(u_time2 * 15.0), 251.0);
+    // Hash pixel position safely, then add a time offset — never passes large values into h2
+    float gv   = fract(h2(floor(muv * u_res)) + fract(seed * 0.6180339887));
+    float sur  = step(na, gv);
     rM *= sur; gM *= sur; bM *= sur;
   }
 
@@ -1030,7 +1034,7 @@ gl.uniform1i(U.u_tex, 0);
 
 gl.useProgram(prog2);
 const U2 = {};
-['u_mask','u_res','u_outline','u_noise','u_blur','u_pixel','u_fg','u_bg']
+['u_mask','u_res','u_outline','u_noise','u_blur','u_pixel','u_time2','u_fg','u_bg']
   .forEach(n => U2[n] = gl.getUniformLocation(prog2, n));
 gl.uniform1i(U2.u_mask, 1);
 gl.useProgram(prog);
@@ -1213,6 +1217,7 @@ function render() {
   gl.uniform2f(U2.u_res,     W, H);
   gl.uniform1f(U2.u_outline, S.outline);
   gl.uniform1f(U2.u_noise,   S.noise);
+  gl.uniform1f(U2.u_time2,   S.anim ? S.time : 0.0);
   gl.uniform1f(U2.u_blur,    S.blur);
   gl.uniform1f(U2.u_pixel,   S.pixel);
   gl.uniform3fv(U2.u_fg,     hexRgb(S.fg));

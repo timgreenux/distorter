@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern Distorter</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+@font-face {
+  font-family: 'Platform';
+  src: url('Platform-Medium.otf') format('opentype');
+  font-weight: 500;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #000000;
+  color: #c0c0c0;
+  font-family: 'Platform', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+}
+
+.app { display: flex; width: 100vw; height: 100vh; }
+
+/* ── Panels ── */
+.panel {
+  width: 300px;
+  flex-shrink: 0;
+  background: #000000;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.panel:last-child { }
+.panel-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 20px;          /* base gap; .gap-ctrl adds 9px more per item = +29 effective */
+  padding: 16px 14px 24px;
+  min-height: 0;
+}
+
+/* scrollbar — hidden track so no visible strip on panel edge */
+.panel { scrollbar-width: none; }
+.panel::-webkit-scrollbar { width: 0; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: transparent; }
+
+/* ── Section label ── */
+.logo-wrap { padding: 4px 0 8px; }
+.logo-wrap img { height: 22px; width: auto; display: block; filter: brightness(0) invert(1); }
+
+.sec {
+  font-size: 9px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: #585858;
+  font-weight: 600; margin-bottom: -4px;
+}
+/* ── Control ── */
+.ctrl { display: flex; flex-direction: column; gap: 7px; }
+.ctrl-top { display: flex; justify-content: space-between; align-items: center; }
+.ctrl-name {
+  font-size: 10px; color: #aaa;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.ctrl-val {
+  font-size: 10px; color: #777;
+  font-variant-numeric: tabular-nums;
+  min-width: 32px; text-align: right;
+}
+
+/* ── Slider ── */
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 1px;
+  background: #2e2e2e; outline: none;
+  cursor: pointer; border-radius: 1px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px; height: 10px;
+  border-radius: 50%; background: #999;
+  cursor: pointer; transition: background .12s;
+}
+input[type=range]::-webkit-slider-thumb:hover { background: #e0e0e0; }
+input[type=range]::-moz-range-thumb {
+  width: 10px; height: 10px;
+  border-radius: 50%; background: #999;
+  border: none; cursor: pointer;
+}
+/* Sub-angle slider */
+.sub-row {
+  display: flex; align-items: center;
+  gap: 6px; padding-left: 1px;
+}
+.sub-name {
+  font-size: 9px; color: #5a5a5a;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  white-space: nowrap; min-width: 42px;
+}
+.sub-val {
+  font-size: 9px; color: #484848;
+  min-width: 30px; text-align: right;
+  flex-shrink: 0;
+}
+input[type=range].sub-rng { background: #1e1e1e; }
+input[type=range].sub-rng::-webkit-slider-thumb { background: #505050; width: 8px; height: 8px; }
+input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
+
+/* Range hint labels */
+.range-hints {  display: flex; justify-content: space-between;
+  font-size: 8px; color: #3e3e3e; margin-top: -3px;
+  letter-spacing: 0.03em;
+}
+
+/* ── Text input ── */
+.text-inp {
+  width: 100%; padding: 9px 10px;
+  background: #1d1d1d; border: 1px solid #282828;
+  border-radius: 4px; color: #eee;
+  font-family: 'Platform', sans-serif;
+  font-size: 20px; letter-spacing: 0.03em;
+  outline: none; transition: border-color .15s;
+}
+.text-inp:focus { border-color: #3a3a3a; }
+
+/* ── Segmented control ── */
+.seg { display: flex; gap: 3px; }
+.seg-btn {
+  flex: 1; padding: 6px 2px;
+  background: #1c1c1c; border: 1px solid #262626; border-radius: 3px;
+  color: #5a5a5a; font-family: 'Platform', sans-serif;
+  font-size: 9px; letter-spacing: 0.09em; text-transform: uppercase;
+  cursor: pointer; text-align: center; user-select: none; transition: all .1s;
+}
+.seg-btn:hover { color: #999; background: #202020; }
+.seg-btn.on { background: #252525; color: #ccc; border-color: #383838; }
+
+/* ── Divider ── */
+.div { height: 1px; background: #1e1e1e; margin: -4px -14px; }
+
+/* ── Color swatches ── */
+.color-section { display: flex; flex-direction: column; gap: 12px; }
+.color-row { display: flex; flex-direction: column; gap: 7px; }
+.swatches { display: flex; justify-content: space-between; }
+.swatch {
+  width: 30px; height: 22px;
+  border-radius: 3px; cursor: pointer;
+  border: 2px solid transparent; flex-shrink: 0;
+  transition: transform .1s, border-color .1s;
+}
+.swatch:hover { transform: scale(1.12); }
+.swatch.on { border-color: #fff !important; }
+.swatch-rainbow { background: conic-gradient(from 0deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); }
+
+/* ── Toggle ── */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle {
+  width: 30px; height: 17px; background: #252525; border-radius: 8.5px;
+  position: relative; cursor: pointer; transition: background .2s;
+  flex-shrink: 0; border: 1px solid #333;
+}
+.toggle.on { background: #d8d8d8; border-color: #d8d8d8; }
+.toggle-knob {
+  width: 11px; height: 11px; background: #555; border-radius: 50%;
+  position: absolute; top: 2px; left: 2px; transition: left .18s, background .18s;
+}
+.toggle.on .toggle-knob { left: 15px; background: #111; }
+
+/* ── Buttons ── */
+.btn-group { display: flex; flex-direction: column; gap: 8px; }
+.btn {
+  padding: 10px 12px; border-radius: 4px; border: none;
+  font-family: 'Platform', sans-serif;
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  cursor: pointer; transition: all .15s; text-align: center;
+}
+.btn-w { background: #e0e0e0; color: #0d0d0d; }
+.btn-w:hover { background: #fff; }
+.btn-d { background: #1c1c1c; color: #aaa; border: 1px solid #262626; }
+.btn-d:hover { color: #ddd; background: #202020; }
+.btn-d:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+/* ── Canvas area ── */
+.canvas-area { flex: 1; position: relative; overflow: hidden; background: #000000; cursor: grab; }
+#gl-canvas, #ov-canvas { position: absolute; top: 0; left: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ LEFT PANEL ═══ -->
+  <aside class="panel">
+    <div class="panel-inner">
+
+      <div class="logo-wrap">
+        <img src="preply.svg" alt="Preply">
+      </div>
+
+      <div class="ctrl">
+        <span class="ctrl-name" style="margin-bottom:4px">Text</span>
+        <input class="text-inp" id="text-inp" type="text" value="Preply"
+               autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Letter Spacing</span>
+          <span class="ctrl-val" id="v-spacing">0</span>
+        </div>
+        <input type="range" id="s-spacing" min="-5" max="60" value="-2" step="0.5">
+      </div>
+
+      <div class="div"></div>
+      <span class="sec">Distortion</span>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Warp</span>
+          <span class="ctrl-val" id="v-warp">0</span>
+        </div>
+        <input type="range" id="s-warp" min="0" max="100" value="0" step="1">
+        <div class="sub-row">
+          <span class="sub-name">Amount</span>
+          <input type="range" class="sub-rng" style="flex:1" id="s-wfreq"
+                 min="0.5" max="20" value="5" step="0.5">
+          <span class="sub-val" id="v-wfreq">5.0</span>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top" style="margin-bottom:8px"><span class="ctrl-name">Warp Type</span></div>
+        <div class="seg">
+          <div class="seg-btn on" data-warp="0">Wave</div>
+          <div class="seg-btn" data-warp="1">Ripple</div>
+          <div class="seg-btn" data-warp="2">Water</div>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Glitch Blocks (H)</span>
+          <span class="ctrl-val" id="v-glitch">0</span>
+        </div>
+        <input type="range" id="s-glitch" min="0" max="100" value="0" step="1">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Glitch Blocks (V)</span>
+          <span class="ctrl-val" id="v-glitchv">0</span>
+        </div>
+        <input type="range" id="s-glitchv" min="0" max="100" value="0" step="1">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Fragment Dissolve</span>
+          <span class="ctrl-val" id="v-frag">0</span>
+        </div>
+        <input type="range" id="s-frag" min="0" max="100" value="0" step="1">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Letter Flip</span>
+          <span class="ctrl-val" id="v-flip">0</span>
+        </div>
+        <input type="range" id="s-flip" min="0" max="100" value="0" step="1">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Letter Width</span>
+          <span class="ctrl-val" id="v-wide">50</span>
+        </div>
+        <input type="range" id="s-wide" min="0" max="100" value="50" step="1">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Stretch</span>
+          <span class="ctrl-val" id="v-xtrude">0</span>
+        </div>
+        <input type="range" id="s-xtrude" min="0" max="100" value="0" step="1">
+        <div class="sub-row">
+          <span class="sub-name">Angle</span>
+          <input type="range" class="sub-rng" style="flex:1" id="s-xtrude-ang"
+                 min="-180" max="180" value="-90" step="5">
+          <span class="sub-val" id="v-xtrude-ang">-90°</span>
+        </div>
+      </div>
+
+      <div class="div"></div>
+      <span class="sec">Colour</span>
+
+      <div class="color-section">
+        <div class="color-row">
+          <span class="ctrl-name">Foreground</span>
+          <div class="swatches" id="fg-sw">
+            <div class="swatch on" data-c="#000000" style="background:#000;border-color:#555"></div>
+            <div class="swatch" data-c="#ffffff" style="background:#fff"></div>
+            <div class="swatch" data-c="#FFE5F0" style="background:#FFE5F0"></div>
+            <div class="swatch" data-c="#FF7AAC" style="background:#FF7AAC"></div>
+            <div class="swatch" data-c="#D13D76" style="background:#D13D76"></div>
+            <div class="swatch swatch-rainbow" id="fg-csw" title="Custom color"></div>
+            <input type="color" id="fg-pick" value="#000000" style="display:none">
+          </div>
+        </div>
+        <div class="color-row">
+          <span class="ctrl-name">Background</span>
+          <div class="swatches" id="bg-sw">
+            <div class="swatch" data-c="#000000" style="background:#000;border-color:#555"></div>
+            <div class="swatch on" data-c="#ffffff" style="background:#fff;border-color:#fff"></div>
+            <div class="swatch" data-c="#FFE5F0" style="background:#FFE5F0"></div>
+            <div class="swatch" data-c="#FF7AAC" style="background:#FF7AAC"></div>
+            <div class="swatch" data-c="#D13D76" style="background:#D13D76"></div>
+            <div class="swatch swatch-rainbow" id="bg-csw" title="Custom color"></div>
+            <input type="color" id="bg-pick" value="#ffffff" style="display:none">
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-w" id="btn-rand">Randomize</button>
+        <button class="btn btn-d" id="btn-reset">Reset to defaults</button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ═══ CANVAS ═══ -->
+  <main class="canvas-area" id="area">
+    <canvas id="gl-canvas"></canvas>
+    <canvas id="ov-canvas" style="pointer-events:none"></canvas>
+  </main>
+
+  <!-- ═══ RIGHT PANEL ═══ -->
+  <aside class="panel">
+    <div class="panel-inner">
+
+      <span class="sec">Effects</span>
+
+      <!-- Smear -->
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Smear</span>
+          <span class="ctrl-val" id="v-copy">0</span>
+        </div>
+        <input type="range" id="s-copy" min="0" max="100" value="0" step="1">
+        <div class="sub-row">
+          <span class="sub-name">Angle</span>
+          <input type="range" class="sub-rng" style="flex:1" id="s-copy-ang"
+                 min="-180" max="180" value="45" step="5">
+          <span class="sub-val" id="v-copy-ang">45°</span>
+        </div>
+      </div>
+
+      <!-- Echo: fades with distance -->
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Echo</span>
+          <span class="ctrl-val" id="v-echo">0</span>
+        </div>
+        <input type="range" id="s-echo" min="0" max="100" value="0" step="1">
+        <div class="sub-row">
+          <span class="sub-name">Angle</span>
+          <input type="range" class="sub-rng" style="flex:1" id="s-echo-ang"
+                 min="-180" max="180" value="45" step="5">
+          <span class="sub-val" id="v-echo-ang">45°</span>
+        </div>
+      </div>
+
+      <!-- Repeat: constant opacity -->
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Repeat</span>
+          <span class="ctrl-val" id="v-rep">0</span>
+        </div>
+        <input type="range" id="s-rep" min="0" max="100" value="0" step="1">
+        <div class="sub-row">
+          <span class="sub-name">Angle</span>
+          <input type="range" class="sub-rng" style="flex:1" id="s-rep-ang"
+                 min="-180" max="180" value="45" step="5">
+          <span class="sub-val" id="v-rep-ang">45°</span>
+        </div>
+        <div class="sub-row">
+          <span class="sub-name">Spacing</span>
+          <input type="range" class="sub-rng" style="flex:1" id="s-rep-step"
+                 min="5" max="200" value="50" step="5">
+          <span class="sub-val" id="v-rep-step">50</span>
+        </div>
+      </div>
+
+      <!-- Tile Wrap -->
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Tile Wrap</span>
+          <span class="ctrl-val" id="v-tile">0</span>
+        </div>
+        <input type="range" id="s-tile" min="0" max="100" value="0" step="1">
+      </div>
+
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">RGB Shift</span>
+          <span class="ctrl-val" id="v-rgb">0</span>
+        </div>
+        <input type="range" id="s-rgb" min="0" max="100" value="0" step="1">
+        <div class="sub-row">
+          <span class="sub-name">Angle</span>
+          <input type="range" class="sub-rng" style="flex:1" id="s-rgb-ang"
+                 min="-180" max="180" value="0" step="5">
+          <span class="sub-val" id="v-rgb-ang">0°</span>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Noise Grain</span>
+          <span class="ctrl-val" id="v-noise">0</span>
+        </div>
+        <input type="range" id="s-noise" min="0" max="100" value="0" step="1">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Blur</span>
+          <span class="ctrl-val" id="v-blur">0</span>
+        </div>
+        <input type="range" id="s-blur" min="0" max="100" value="0" step="1">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Pixellate</span>
+          <span class="ctrl-val" id="v-pixel">0</span>
+        </div>
+        <input type="range" id="s-pixel" min="0" max="100" value="0" step="1">
+      </div>
+
+      <div class="div"></div>
+      <span class="sec">Overlays</span>
+
+        <div class="ctrl">
+          <div class="ctrl-top">
+            <span class="ctrl-name">Dot Grid</span>
+            <span class="ctrl-val" id="v-dots">0</span>
+          </div>
+          <input type="range" id="s-dots" min="0" max="100" value="0" step="1">
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-top">
+            <span class="ctrl-name">Grid Lines</span>
+            <span class="ctrl-val" id="v-grid">0</span>
+          </div>
+          <input type="range" id="s-grid" min="0" max="100" value="0" step="1">
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-top">
+            <span class="ctrl-name">Lines</span>
+            <span class="ctrl-val" id="v-diag">0</span>
+          </div>
+          <input type="range" id="s-diag" min="0" max="100" value="0" step="1">
+          <div class="sub-row">
+            <span class="sub-name">Angle</span>
+            <input type="range" class="sub-rng" style="flex:1" id="s-diag-ang"
+                   min="-180" max="180" value="45" step="5">
+            <span class="sub-val" id="v-diag-ang">45°</span>
+          </div>
+        </div>
+
+      <div class="div"></div>
+      <span class="sec">Animation</span>
+
+      <div class="ctrl">
+        <div class="toggle-row">
+          <span class="ctrl-name">Animate</span>
+          <div class="toggle" id="tog-anim"><div class="toggle-knob"></div></div>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Speed</span>
+          <span class="ctrl-val" id="v-speed">1.0</span>
+        </div>
+        <input type="range" id="s-speed" min="0.1" max="5" value="1" step="0.1">
+      </div>
+
+      <div style="flex:1"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-d" id="btn-export">Export PNG</button>
+        <button class="btn btn-d" id="btn-export-gif" disabled>Export GIF</button>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+<script>
+// ─────────────────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────────────────
+const S = {
+  text: 'Preply',
+  warp: 0, wfreq: 5, wtype: 0,
+  glitch: 0, glitchv: 0, frag: 0, tile: 0, flip: 0, wide: 50,
+  spacing: -2,
+  echo: 0,    echoAng: 45,
+  rep: 0,     repAng:  45,  repStep: 50,
+  outline: 0, rgb: 0, rgbAng: 0, noise: 0, blur: 0, pixel: 0,
+  copy: 0,    copyAng: 45,
+  xtrude: 0,  xtrudeAng: -90,
+  dots: 0, grid: 0, diag: 0, diagAng: 45,
+  fg: '#000000', bg: '#ffffff',
+  anim: false, speed: 1.0,
+  panX: 0, panY: 0,
+  time: 0, dirty: true
+};
+
+// ─────────────────────────────────────────────────────────────
+//  CANVAS SETUP
+// ─────────────────────────────────────────────────────────────
+const area  = document.getElementById('area');
+const glCvs = document.getElementById('gl-canvas');
+const ovCvs = document.getElementById('ov-canvas');
+let W = 0, H = 0;
+
+function resize() {
+  const aW = area.clientWidth;
+  const aH = area.clientHeight;
+  const side = Math.min(aW, aH);
+  W = side; H = side;
+  const offX = Math.round((aW - side) / 2);
+  const offY = Math.round((aH - side) / 2);
+  glCvs.width  = W; glCvs.height  = H;
+  ovCvs.width  = W; ovCvs.height  = H;
+  glCvs.style.width  = W+'px'; glCvs.style.height = H+'px';
+  ovCvs.style.width  = W+'px'; ovCvs.style.height = H+'px';
+  glCvs.style.left = offX+'px'; glCvs.style.top = offY+'px';
+  ovCvs.style.left = offX+'px'; ovCvs.style.top = offY+'px';
+  // Resize mask FBO texture to match canvas
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, maskTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.activeTexture(gl.TEXTURE0);
+  needsText = true; S.dirty = true;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WEBGL
+// ─────────────────────────────────────────────────────────────
+const gl = glCvs.getContext('webgl', { antialias: true, preserveDrawingBuffer: true });
+
+const VS = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main() {
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+  v_uv = a_pos * 0.5 + 0.5;
+  v_uv.y = 1.0 - v_uv.y;
+}`;
+
+const FS1 = `
+precision highp float;
+
+uniform sampler2D u_tex;
+uniform vec2  u_res;
+uniform float u_time;
+uniform float u_warp;
+uniform float u_wfreq;
+uniform float u_wtype;
+uniform float u_glitch;
+uniform float u_glitchv;
+uniform float u_frag;
+uniform float u_wide;
+uniform float u_tile;
+uniform float u_xtrude;
+uniform float u_xtrude_ang;
+uniform float u_echo;
+uniform float u_echo_ang;
+uniform float u_rep;
+uniform float u_rep_ang;
+uniform float u_rep_step;
+uniform float u_rgb;
+uniform float u_rgb_ang;
+uniform float u_copy;
+uniform float u_copy_ang;
+varying vec2  v_uv;
+
+float h2(vec2  p)  { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+vec2  h2v(vec2 p)  {
+  return fract(sin(vec2(dot(p, vec2(127.1,311.7)),
+                        dot(p, vec2(269.5,183.3)))) * 43758.5453);
+}
+
+float samp(vec2 uv) {
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+  return texture2D(u_tex, uv).r;
+}
+
+void main() {
+  vec2 uv = v_uv;
+
+  // ── Warp ──────────────────────────────────────────────────
+  if (u_warp > 0.0) {
+    float wa = u_warp * 0.01;
+    float wf = u_wfreq;
+    float t  = u_time;
+
+    if (u_wtype < 0.5) {
+      // Sine wave — two perpendicular waves
+      uv.x += sin(uv.y * wf * 6.283 + t * 1.2) * wa * 0.13;
+      uv.y += sin(uv.x * wf * 6.283 + t * 0.85) * wa * 0.10;
+
+    } else if (u_wtype < 1.5) {
+      // Radial ripple
+      vec2 d = uv - 0.5;
+      float r = length(d);
+      float s = sin(r * wf * 18.0 - t * 3.2) * wa * 0.20;
+      uv += normalize(d + 0.0001) * s;
+
+    } else {
+      // Water — FBM multi-frequency turbulence
+      // Four superimposed sine×cosine products at different scales & angles
+      float w1x = sin(uv.x * wf * 3.10 + t * 0.80) * cos(uv.y * wf * 2.70 + t * 0.55);
+      float w2x = cos(uv.x * wf * 5.30 + t * 0.45) * sin(uv.y * wf * 4.10 + t * 0.72);
+      float w3x = sin((uv.x + uv.y) * wf * 3.70 + t * 0.93) * 0.40;
+      float w4x = sin(uv.x * wf * 8.20 - uv.y * wf * 2.10 + t * 0.31) * 0.22;
+
+      float w1y = cos(uv.x * wf * 2.90 + t * 0.70) * sin(uv.y * wf * 3.30 + t * 0.48);
+      float w2y = sin(uv.x * wf * 4.70 + t * 0.52) * cos(uv.y * wf * 5.20 + t * 0.65);
+      float w3y = cos((uv.x - uv.y) * wf * 4.10 + t * 0.87) * 0.40;
+      float w4y = cos(uv.x * wf * 7.30 + uv.y * wf * 3.10 + t * 0.28) * 0.22;
+
+      uv.x += (w1x + w2x * 0.6 + w3x + w4x) * wa * 0.09;
+      uv.y += (w1y + w2y * 0.6 + w3y + w4y) * wa * 0.07;
+    }
+  }
+
+  // ── Glitch Blocks (horizontal) ───────────────────────────
+  if (u_glitch > 0.0) {
+    float ga = u_glitch * 0.01;
+    float s1 = floor(uv.y * 38.0);
+    float r1 = h2(vec2(s1, floor(u_time * 10.0)));
+    if (r1 < ga * 0.75)
+      uv.x += (h2(vec2(s1 + 53.0, floor(u_time * 10.0))) - 0.5) * ga * 0.38;
+    float s2 = floor(uv.y * 7.0);
+    float r2 = h2(vec2(s2 * 3.7, floor(u_time * 4.5)));
+    if (r2 < ga * 0.22)
+      uv.x += (h2(vec2(s2 * 8.1 + 200.0, floor(u_time * 4.5))) - 0.5) * ga * 0.75;
+  }
+
+  // ── Glitch Blocks (vertical) ──────────────────────────────
+  if (u_glitchv > 0.0) {
+    float gv = u_glitchv * 0.01;
+    float s1 = floor(uv.x * 38.0);
+    float r1 = h2(vec2(s1 + 300.0, floor(u_time * 10.0)));
+    if (r1 < gv * 0.75)
+      uv.y += (h2(vec2(s1 + 353.0, floor(u_time * 10.0))) - 0.5) * gv * 0.38;
+    float s2 = floor(uv.x * 7.0);
+    float r2 = h2(vec2(s2 * 3.7 + 400.0, floor(u_time * 4.5)));
+    if (r2 < gv * 0.22)
+      uv.y += (h2(vec2(s2 * 8.1 + 500.0, floor(u_time * 4.5))) - 0.5) * gv * 0.75;
+  }
+
+  // ── Fragment Dissolve (Voronoi, animated with time) ──────────
+  if (u_frag > 0.0) {
+    float fa = u_frag * 0.01;
+    float sc = 6.0 + fa * 38.0;
+    vec2 cell = floor(uv * sc);
+    vec2 cf   = fract(uv * sc);
+    float bd  = 9999.0;
+    vec2  bo  = vec2(0.0);
+    for (int dx = -1; dx <= 1; dx++) {
+      for (int dy = -1; dy <= 1; dy++) {
+        vec2 nb = vec2(float(dx), float(dy));
+        // animate the voronoi seed point with time
+        vec2 pt = h2v(cell + nb + vec2(floor(u_time * 1.5) * 37.1, 0.0)) + nb - cf;
+        float d = dot(pt, pt);
+        if (d < bd) { bd = d; bo = h2v(cell + nb + vec2(19.3, 7.5) + vec2(floor(u_time * 1.5) * 37.1, 0.0)) - 0.5; }
+      }
+    }
+    uv += bo * fa * 0.52;
+  }
+
+  // ── Tile Wrap — fract-tile the UV so text repeats in a grid ─
+  if (u_tile > 0.0) {
+    float n = 1.0 + u_tile * 0.05; // 1 → 6 tiles per axis at 100
+    uv = fract(uv * n);
+  }
+
+  vec2 du = uv;
+
+  // ── Sample with RGB Shift ─────────────────────────────────
+  float shft = u_rgb * 0.0045;
+  vec2 shftDir = vec2(cos(u_rgb_ang), -sin(u_rgb_ang));
+  float rM = samp(du + shftDir * shft);
+  float gM = samp(du);
+  float bM = samp(du - shftDir * shft);
+
+  // ── Letter Width — directional dilation: left half pushes left, right half pushes right ─
+  // u_wide=50 is neutral. <50 dilates left only; >50 dilates right only.
+  if (u_wide != 50.0) {
+    float w = u_wide - 50.0; // -50 to +50
+    if (w > 0.0) {
+      for (int i = 1; i <= 30; i++) {
+        if (float(i) > w * 1.80) break;
+        float dx = float(i) * 0.0088;
+        rM = max(rM, samp(du + vec2( dx + shft, 0.0)));
+        gM = max(gM, samp(du + vec2( dx,        0.0)));
+        bM = max(bM, samp(du + vec2( dx - shft, 0.0)));
+      }
+    } else {
+      for (int i = 1; i <= 30; i++) {
+        if (float(i) > -w * 1.80) break;
+        float dx = float(i) * 0.0088;
+        rM = max(rM, samp(du + vec2(-dx + shft, 0.0)));
+        gM = max(gM, samp(du + vec2(-dx,        0.0)));
+        bM = max(bM, samp(du + vec2(-dx - shft, 0.0)));
+      }
+    }
+  }
+
+  // ── Stretch — directional extrusion: cast ray backward, project ink forward ─
+  if (u_xtrude > 0.0) {
+    float xa = u_xtrude * 0.01;
+    vec2 dir = vec2(cos(u_xtrude_ang), -sin(u_xtrude_ang));
+    for (int i = 1; i <= 30; i++) {
+      float t = float(i) * xa * 0.01;
+      float s = samp(du - dir * t);
+      rM = max(rM, s);
+      gM = max(gM, s);
+      bM = max(bM, s);
+    }
+  }
+
+  // ── Echo (fading copies in direction) ────────────────────
+  if (u_echo > 0.0) {
+    float ea    = u_echo * 0.01;
+    float eStep = ea * 0.085;
+    vec2  eDir  = vec2(cos(u_echo_ang), sin(u_echo_ang));
+    for (int i = 1; i <= 8; i++) {
+      if (float(i) > u_echo * 0.09) break;
+      float fi   = float(i);
+      float fade = 1.0 - fi * 0.115;           // linear fade per copy
+      vec2  off  = eDir * fi * eStep;
+      rM = max(rM, samp(du + off + vec2( shft, 0.0)) * fade);
+      gM = max(gM, samp(du + off)                    * fade);
+      bM = max(bM, samp(du + off - vec2( shft, 0.0)) * fade);
+    }
+  }
+
+  // ── Repeat (constant opacity copies) ─────────────────────
+  if (u_rep > 0.0) {
+    float rStep = u_rep_step * 0.001;   // spacing controlled by slider
+    vec2  rDir  = vec2(cos(u_rep_ang), sin(u_rep_ang));
+    for (int i = 1; i <= 8; i++) {
+      if (float(i) > u_rep * 0.09) break;
+      float fi  = float(i);
+      vec2  off = rDir * fi * rStep;
+      rM = max(rM, samp(du + off + vec2( shft, 0.0)));
+      gM = max(gM, samp(du + off));
+      bM = max(bM, samp(du + off - vec2( shft, 0.0)));
+    }
+  }
+
+  // ── Photocopy Smear — wobbly directional drag, solid ─────
+  if (u_copy > 0.0) {
+    float ca   = u_copy * 0.01;
+    vec2  cDir = vec2(cos(u_copy_ang), sin(u_copy_ang));
+    vec2  perp = vec2(-cDir.y, cDir.x);   // perpendicular wobble axis
+    // Forward smear: solid (no decay), wobble grows with distance
+    for (int i = 1; i <= 28; i++) {
+      if (float(i) > u_copy * 0.29) break;
+      float fi  = float(i);
+      float t   = fi * ca * 0.009;
+      float wb  = sin(fi * 1.1 + u_time * 1.8) * ca * 0.022 * fi * 0.1;
+      vec2  off = cDir * t + perp * wb;
+      rM = max(rM, samp(du + off + vec2( shft, 0.0)));
+      gM = max(gM, samp(du + off));
+      bM = max(bM, samp(du + off - vec2( shft, 0.0)));
+    }
+    // Short back-pull (slight fade for directionality cue)
+    for (int i = 1; i <= 6; i++) {
+      if (float(i) > u_copy * 0.07) break;
+      float fi  = float(i);
+      float t   = fi * ca * 0.005;
+      float wb  = sin(fi * 1.3 + u_time * 2.1 + 1.5) * ca * 0.015 * fi * 0.1;
+      vec2  off = -(cDir * t) + perp * wb;
+      rM = max(rM, samp(du + off + vec2( shft, 0.0)) * 0.50);
+      gM = max(gM, samp(du + off)                    * 0.50);
+      bM = max(bM, samp(du + off - vec2( shft, 0.0)) * 0.50);
+    }
+  }
+
+  // ── Output accumulated mask (pass 1) ────────────────────────
+  gl_FragColor = vec4(rM, gM, bM, 1.0);
+}`;
+
+// ── Pass 2: Sobel outline on full composite + colorize ───────
+const FS2 = `
+precision highp float;
+uniform sampler2D u_mask;
+uniform vec2  u_res;
+uniform float u_outline;
+uniform float u_noise;
+uniform float u_blur;
+uniform float u_pixel;
+uniform vec3  u_fg;
+uniform vec3  u_bg;
+varying vec2  v_uv;
+
+float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+void main() {
+  vec2 muv = vec2(v_uv.x, 1.0 - v_uv.y); // correct for FBO y-orientation
+
+  // ── Pixellate ─────────────────────────────────────────────
+  if (u_pixel > 0.0) {
+    vec2 bs = (1.0 + u_pixel * 0.6) / u_res;
+    muv = floor(muv / bs) * bs + bs * 0.5;
+  }
+
+  float rM = texture2D(u_mask, muv).r;
+  float gM = texture2D(u_mask, muv).g;
+  float bM = texture2D(u_mask, muv).b;
+
+  // ── Gaussian Blur ─────────────────────────────────────────
+  if (u_blur > 0.0) {
+    float radius = u_blur * 2.2;
+    vec2 px = vec2(1.0) / u_res;
+    vec3 acc = vec3(rM, gM, bM);
+    float wSum = 1.0;
+    for (int i = 1; i <= 30; i++) {
+      float fi = float(i);
+      if (fi > 30.0) break;
+      float t = fi * radius / 30.0;
+      float w = exp(-fi * fi / 90.0);
+      vec2 ox = vec2(t * px.x, 0.0);
+      vec2 oy = vec2(0.0, t * px.y);
+      acc += (texture2D(u_mask, muv + ox).rgb
+            + texture2D(u_mask, muv - ox).rgb
+            + texture2D(u_mask, muv + oy).rgb
+            + texture2D(u_mask, muv - oy).rgb) * w;
+      wSum += 4.0 * w;
+    }
+    acc /= wSum;
+    rM = acc.r; gM = acc.g; bM = acc.b;
+  }
+
+  // ── Outline — Sobel on the composited mask ────────────────
+  if (u_outline > 0.0) {
+    float oa = u_outline * 0.01;
+    float os = (1.2 + oa * 9.0) / min(u_res.x, u_res.y);
+    float tl = texture2D(u_mask, muv + vec2(-os,-os)).r;
+    float t  = texture2D(u_mask, muv + vec2( 0.0,-os)).r;
+    float tr = texture2D(u_mask, muv + vec2( os,-os)).r;
+    float l  = texture2D(u_mask, muv + vec2(-os, 0.0)).r;
+    float r  = texture2D(u_mask, muv + vec2( os, 0.0)).r;
+    float bl = texture2D(u_mask, muv + vec2(-os,  os)).r;
+    float b  = texture2D(u_mask, muv + vec2( 0.0, os)).r;
+    float br = texture2D(u_mask, muv + vec2( os,  os)).r;
+    float gx = tr + 2.0*r + br - tl - 2.0*l - bl;
+    float gy = bl + 2.0*b + br - tl - 2.0*t - tr;
+    float edge = clamp(sqrt(gx*gx + gy*gy) * 6.5, 0.0, 1.0);
+    rM = mix(rM, edge, oa);
+    gM = mix(gM, edge, oa);
+    bM = mix(bM, edge, oa);
+  }
+
+  // ── Noise Grain — per-pixel static/snow dissolution ──────
+  if (u_noise > 0.0) {
+    float na  = u_noise * 0.01;
+    float gv  = h2(floor(muv * u_res) + vec2(31.7, 17.3));
+    float sur = step(na, gv);
+    rM *= sur; gM *= sur; bM *= sur;
+  }
+
+  // ── Colorize ──────────────────────────────────────────────
+  vec3 col = vec3(
+    mix(u_bg.r, u_fg.r, rM),
+    mix(u_bg.g, u_fg.g, gM),
+    mix(u_bg.b, u_fg.b, bM)
+  );
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+}`;
+
+function mkShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+    console.error('Shader:', gl.getShaderInfoLog(s));
+  return s;
+}
+function mkProg(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, mkShader(gl.VERTEX_SHADER,   vs));
+  gl.attachShader(p, mkShader(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS))
+    console.error('Link:', gl.getProgramInfoLog(p));
+  return p;
+}
+
+// ── Pass 1 program (mask accumulation) ──────────────────────
+const prog  = mkProg(VS, FS1);
+
+// ── Pass 2 program (outline + colorize) ─────────────────────
+const prog2 = mkProg(VS, FS2);
+
+// ── Shared quad buffer ───────────────────────────────────────
+const vbuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, vbuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+// Enable a_pos for prog (prog2 shares the same VS so same location)
+gl.useProgram(prog);
+const aPos = gl.getAttribLocation(prog, 'a_pos');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+// ── Text texture (unit 0) ────────────────────────────────────
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+// ── Mask FBO + texture (unit 1) ──────────────────────────────
+const maskTex = gl.createTexture();
+gl.activeTexture(gl.TEXTURE1);
+gl.bindTexture(gl.TEXTURE_2D, maskTex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+// Size set in resize()
+const fbo = gl.createFramebuffer();
+gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, maskTex, 0);
+gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+gl.activeTexture(gl.TEXTURE0);
+
+// ── Uniform locations ────────────────────────────────────────
+const U = {};
+['u_tex','u_res','u_time',
+ 'u_warp','u_wfreq','u_wtype','u_glitch','u_glitchv','u_frag','u_tile','u_wide','u_xtrude','u_xtrude_ang',
+ 'u_echo','u_echo_ang','u_rep','u_rep_ang','u_rep_step',
+ 'u_rgb','u_rgb_ang',
+ 'u_copy','u_copy_ang']
+  .forEach(n => U[n] = gl.getUniformLocation(prog, n));
+gl.uniform1i(U.u_tex, 0);
+
+gl.useProgram(prog2);
+const U2 = {};
+['u_mask','u_res','u_outline','u_noise','u_blur','u_pixel','u_fg','u_bg']
+  .forEach(n => U2[n] = gl.getUniformLocation(prog2, n));
+gl.uniform1i(U2.u_mask, 1);
+gl.useProgram(prog);
+
+function hexRgb(h) {
+  return [parseInt(h.slice(1,3),16)/255,
+          parseInt(h.slice(3,5),16)/255,
+          parseInt(h.slice(5,7),16)/255];
+}
+
+const D2R = Math.PI / 180;
+
+// ─────────────────────────────────────────────────────────────
+//  TEXT RENDERING
+// ─────────────────────────────────────────────────────────────
+const tCvs = document.createElement('canvas');
+const tc   = tCvs.getContext('2d');
+let needsText = true;
+
+function renderText() {
+  tCvs.width = W; tCvs.height = H;
+  tc.fillStyle = '#000';
+  tc.fillRect(0, 0, W, H);
+
+  const txt = S.text.trim();
+  if (!txt) return;
+
+  const maxW   = W * 0.86;
+  const fStr   = fs => `500 ${fs}px Platform, "Helvetica Neue", Helvetica, Arial, sans-serif`;
+
+  function mW(fs) {
+    tc.font = fStr(fs);
+    const ls = S.spacing * fs * 0.01;
+    let w = 0;
+    for (let i = 0; i < txt.length; i++) {
+      w += tc.measureText(txt[i]).width;
+      if (i < txt.length - 1) w += ls;
+    }
+    return w;
+  }
+
+  let fs = Math.min(H * 0.44, W * 0.22);
+  while (mW(fs) > maxW && fs > 14) fs -= 2;
+
+  const ls = S.spacing * fs * 0.01;
+  const tw = mW(fs);
+  tc.font = fStr(fs);
+  tc.fillStyle    = '#fff';
+  tc.textBaseline = 'middle';
+
+  tc.save();
+  tc.translate(W / 2 + S.panX, H / 2 + S.panY);
+  tc.transform(1, 0, 0, 1, 0, 0);
+  let x = -tw / 2;
+  const hsh = n => Math.abs(Math.sin(n * 127.1) * 43758.5453 % 1);
+  const flipFrame = S.anim ? Math.floor(S.time * 2) : 0; // flips change ~every 0.5s when animating
+  for (let i = 0; i < txt.length; i++) {
+    const cw = tc.measureText(txt[i]).width;
+    if (S.flip > 0) {
+      const seed = i * 17.3 + flipFrame * 31.7;
+      const flipH = hsh(seed + 0.1) < S.flip / 100;
+      const flipV = hsh(seed + 50.3) < S.flip / 200;
+      tc.save();
+      tc.translate(x + cw / 2, 0);
+      if (flipH) tc.scale(-1, 1);
+      if (flipV) tc.scale(1, -1);
+      tc.fillText(txt[i], -cw / 2, 0);
+      tc.restore();
+    } else {
+      tc.fillText(txt[i], x, 0);
+    }
+    x += cw + (i < txt.length - 1 ? ls : 0);
+  }
+  tc.restore();
+
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tCvs);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  OVERLAY
+// ─────────────────────────────────────────────────────────────
+function renderOverlay() {
+  const ctx = ovCvs.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = S.fg;
+  ctx.fillStyle   = S.fg;
+  ctx.lineWidth   = 1;
+
+  // Dot grid (0 = sparse/off, 100 = dense large dots)
+  if (S.dots > 0) {
+    const spacing = Math.max(14, 100 - S.dots * 0.86);  // 100px at 0 → 14px at 100
+    const radius  = Math.max(1, 1 + S.dots * 0.022);    // 1px at 0 → ~3.2px at 100
+    ctx.globalAlpha = 0.82;
+    for (let y = 0; y <= H + spacing; y += spacing) {
+      for (let x = 0; x <= W + spacing; x += spacing) {
+        ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Grid lines — always 1px, cells shrink from ~80px at 0 to ~4px at 100
+  if (S.grid > 0) {
+    ctx.globalAlpha = Math.min(S.grid * 0.012, 0.80);
+    ctx.lineWidth = 1;
+    const cellSize = Math.max(4, Math.round(80 - S.grid * 0.76));
+    for (let x = 0; x <= W + cellSize; x += cellSize) {
+      ctx.beginPath(); ctx.moveTo(Math.round(x), 0); ctx.lineTo(Math.round(x), H); ctx.stroke();
+    }
+    for (let y = 0; y <= H + cellSize; y += cellSize) {
+      ctx.beginPath(); ctx.moveTo(0, Math.round(y)); ctx.lineTo(W, Math.round(y)); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Lines — angle-controlled
+  if (S.diag > 0) {
+    ctx.globalAlpha = Math.min(S.diag * 0.012, 0.78);
+    const sp  = Math.max(7, 130 - S.diag * 1.2);
+    const ang = S.diagAng * Math.PI / 180;
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(ang);
+    const D = Math.hypot(W, H);
+    for (let o = -D; o < D + sp; o += sp) {
+      ctx.beginPath(); ctx.moveTo(o, -D); ctx.lineTo(o, D); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RENDER LOOP
+// ─────────────────────────────────────────────────────────────
+let _lastFlipFrame = -1;
+function render() {
+  if (!W || !H) return;
+  // Animated letter flips: re-render text when the flip frame changes
+  if (S.flip > 0 && S.anim) {
+    const ff = Math.floor(S.time * 2);
+    if (ff !== _lastFlipFrame) { _lastFlipFrame = ff; needsText = true; }
+  }
+  if (needsText) { renderText(); needsText = false; S.dirty = true; }
+  if (!S.dirty && !S.anim) return;
+  S.dirty = false;
+
+  // ── Pass 1: accumulate mask → FBO ────────────────────────
+  gl.useProgram(prog);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.viewport(0, 0, W, H);
+  gl.uniform2f(U.u_res,      W, H);
+  gl.uniform1f(U.u_time,     S.time);
+  gl.uniform1f(U.u_warp,     S.warp);
+  gl.uniform1f(U.u_wfreq,    S.wfreq);
+  gl.uniform1f(U.u_wtype,    S.wtype);
+  gl.uniform1f(U.u_glitch,   S.glitch);
+  gl.uniform1f(U.u_glitchv,  S.glitchv);
+  gl.uniform1f(U.u_frag,     S.frag);
+  gl.uniform1f(U.u_tile,     S.tile);
+  gl.uniform1f(U.u_wide,     S.wide);
+  gl.uniform1f(U.u_echo,     S.echo);
+  gl.uniform1f(U.u_echo_ang, S.echoAng * D2R);
+  gl.uniform1f(U.u_rep,      S.rep);
+  gl.uniform1f(U.u_rep_ang,  S.repAng  * D2R);
+  gl.uniform1f(U.u_rep_step, S.repStep);
+  gl.uniform1f(U.u_rgb,      S.rgb);
+  gl.uniform1f(U.u_rgb_ang,  S.rgbAng * D2R);
+  gl.uniform1f(U.u_copy,     S.copy);
+  gl.uniform1f(U.u_copy_ang,    S.copyAng    * D2R);
+  gl.uniform1f(U.u_xtrude,      S.xtrude);
+  gl.uniform1f(U.u_xtrude_ang,  S.xtrudeAng  * D2R);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+  // ── Pass 2: outline + colorize → screen ──────────────────
+  gl.useProgram(prog2);
+  gl.viewport(0, 0, W, H);
+  gl.uniform2f(U2.u_res,     W, H);
+  gl.uniform1f(U2.u_outline, S.outline);
+  gl.uniform1f(U2.u_noise,   S.noise);
+  gl.uniform1f(U2.u_blur,    S.blur);
+  gl.uniform1f(U2.u_pixel,   S.pixel);
+  gl.uniform3fv(U2.u_fg,     hexRgb(S.fg));
+  gl.uniform3fv(U2.u_bg,     hexRgb(S.bg));
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  renderOverlay();
+}
+
+let lastT = 0;
+function loop(t) {
+  if (S.anim) {
+    const dt = Math.min((t - lastT) / 1000, 0.05);
+    S.time += dt * S.speed;
+    S.dirty  = true;
+  }
+  lastT = t;
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CONTROLS
+// Slider ID pattern: 's-xxx' → display ID 'v-xxx' (slice off 's-' prefix)
+// ─────────────────────────────────────────────────────────────
+function bindSlider(id, key, reText, unit) {
+  const el    = document.getElementById(id);
+  const valEl = document.getElementById('v-' + id.slice(2));
+  const sync  = () => {
+    S[key] = parseFloat(el.value);
+    if (valEl) {
+      const v   = S[key];
+      const fmt = Number.isInteger(v) ? v : v.toFixed(1);
+      valEl.textContent = unit ? fmt + unit : fmt;
+    }
+    if (reText) needsText = true;
+    S.dirty = true;
+  };
+  el.addEventListener('input', sync);
+  sync(); // initialise display from current slider value
+}
+
+bindSlider('s-warp',     'warp');
+bindSlider('s-wfreq',    'wfreq');
+bindSlider('s-glitch',   'glitch');
+bindSlider('s-glitchv',  'glitchv');
+bindSlider('s-frag',     'frag');
+bindSlider('s-tile',     'tile');
+bindSlider('s-flip',     'flip', true);
+bindSlider('s-wide',     'wide');
+bindSlider('s-spacing',  'spacing', true);
+bindSlider('s-echo',     'echo');
+bindSlider('s-echo-ang', 'echoAng', false, '°');
+bindSlider('s-rep',      'rep');
+bindSlider('s-rep-ang',  'repAng',  false, '°');
+bindSlider('s-rep-step', 'repStep');
+bindSlider('s-rgb',      'rgb');
+bindSlider('s-rgb-ang',  'rgbAng', false, '°');
+bindSlider('s-noise',    'noise');
+bindSlider('s-blur',     'blur');
+bindSlider('s-pixel',    'pixel');
+bindSlider('s-copy',        'copy');
+bindSlider('s-copy-ang',    'copyAng',    false, '°');
+bindSlider('s-xtrude',      'xtrude');
+bindSlider('s-xtrude-ang',  'xtrudeAng',  false, '°');
+bindSlider('s-dots',     'dots');
+bindSlider('s-grid',     'grid');
+bindSlider('s-diag',     'diag');
+bindSlider('s-diag-ang', 'diagAng', false, '°');
+bindSlider('s-speed',    'speed');
+
+// Text
+document.getElementById('text-inp').addEventListener('input', e => {
+  S.text = e.target.value || ' ';
+  needsText = true; S.dirty = true;
+});
+
+// ── Canvas pan (click-drag to move image) ──────────────────
+{
+  const area = document.getElementById('area');
+  let dragging = false, lastX = 0, lastY = 0;
+
+  function startDrag(x, y) { dragging = true; lastX = x; lastY = y; area.style.cursor = 'grabbing'; }
+  function moveDrag(x, y) {
+    if (!dragging) return;
+    S.panX += x - lastX;
+    S.panY += y - lastY;
+    lastX = x; lastY = y;
+    needsText = true; S.dirty = true;
+  }
+  function endDrag() { dragging = false; area.style.cursor = ''; }
+
+  area.addEventListener('mousedown',  e => { if (e.button === 0) startDrag(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+  window.addEventListener('mouseup',   endDrag);
+  area.addEventListener('touchstart',  e => { const t = e.touches[0]; startDrag(t.clientX, t.clientY); }, { passive: true });
+  window.addEventListener('touchmove',  e => { const t = e.touches[0]; moveDrag(t.clientX, t.clientY); }, { passive: true });
+  window.addEventListener('touchend',   endDrag);
+}
+
+// Warp type
+document.querySelectorAll('.seg-btn[data-warp]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.seg-btn[data-warp]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    S.wtype = parseFloat(btn.dataset.warp);
+    S.dirty = true;
+  });
+});
+
+// Animate
+document.getElementById('tog-anim').addEventListener('click', function() {  S.anim = !S.anim; this.classList.toggle('on', S.anim);
+  document.getElementById('btn-export-gif').disabled = !S.anim;
+});
+
+// Color swatches
+function setupColors(swId, pickId, custId, key) {
+  const cont = document.getElementById(swId);
+  const pick = document.getElementById(pickId);
+  const cust = document.getElementById(custId);
+
+  cont.querySelectorAll('.swatch[data-c]').forEach(sw => {
+    sw.addEventListener('click', () => {
+      cont.querySelectorAll('.swatch').forEach(s => s.classList.remove('on'));
+      sw.classList.add('on');
+      S[key] = sw.dataset.c; pick.value = sw.dataset.c;
+      S.dirty = true;
+    });
+  });
+
+  cust && cust.addEventListener('click', () => pick.click());
+  pick.addEventListener('input', e => {
+    cont.querySelectorAll('.swatch').forEach(s => s.classList.remove('on'));
+    cust && cust.classList.add('on');
+    S[key] = e.target.value; S.dirty = true;
+  });
+}
+setupColors('fg-sw', 'fg-pick', 'fg-csw', 'fg');
+setupColors('bg-sw', 'bg-pick', 'bg-csw', 'bg');
+
+// ─────────────────────────────────────────────────────────────
+//  RANDOMIZE
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btn-rand').addEventListener('click', () => {
+  const r  = Math.random;
+  const rr = (a, b) => a + r() * (b - a);
+  const mb = (key, lo, hi, p) => { S[key] = r() < p ? rr(lo, hi) : 0; };
+
+  S.warp   = r() < 0.75 ? rr(15, 88) : 0;
+  S.wfreq  = rr(1, 16);
+  S.wtype  = Math.floor(r() * 3);
+  mb('glitch',  10, 80, 0.50);
+  mb('glitchv', 10, 80, 0.35);
+  mb('frag',    10, 70, 0.45);
+  mb('tile',    10, 80, 0.25);
+  mb('flip',    10, 80, 0.35);
+  mb('wide',    0, 100, 0.30);
+  mb('spacing', -2, 45, 0.40);
+  mb('echo',    10, 70, 0.45);
+  mb('rep',     10, 65, 0.35);
+  mb('repStep', 15, 150, 0.70); // usually active when rep is active
+  mb('rgb',      5, 65, 0.40);
+  S.rgbAng = rr(-180, 180);
+  mb('noise',    5, 45, 0.55);
+  mb('blur',     5, 60, 0.30);
+  mb('pixel',    5, 70, 0.25);
+  mb('copy',    10, 70, 0.30);
+  mb('xtrude',  10, 80, 0.28);
+  S.xtrudeAng = rr(-180, 180);
+  S.echoAng = rr(-180, 180);
+  S.repAng  = rr(-180, 180);
+  S.copyAng = rr(-180, 180);
+  mb('dots',    10, 80, 0.35);
+  mb('grid',     5, 65, 0.35);
+  mb('diag',     5, 65, 0.35);
+  S.diagAng = rr(-180, 180);
+
+  // Sync all sliders + value displays
+  const map = {
+    warp:'s-warp', wfreq:'s-wfreq', glitch:'s-glitch', glitchv:'s-glitchv', frag:'s-frag', tile:'s-tile',
+    flip:'s-flip', wide:'s-wide', spacing:'s-spacing',
+    echo:'s-echo', rep:'s-rep', repStep:'s-rep-step',
+    rgb:'s-rgb', noise:'s-noise', blur:'s-blur', pixel:'s-pixel', copy:'s-copy', xtrude:'s-xtrude',
+    dots:'s-dots', grid:'s-grid', diag:'s-diag'
+  };
+  const angMap = { echoAng:'s-echo-ang', repAng:'s-rep-ang', copyAng:'s-copy-ang', xtrudeAng:'s-xtrude-ang', rgbAng:'s-rgb-ang', diagAng:'s-diag-ang' };
+  Object.entries(map).forEach(([key, sid]) => {
+    const el  = document.getElementById(sid);
+    const vel = document.getElementById('v-' + sid.slice(2));
+    if (el)  el.value = S[key];
+    if (vel) { const v = S[key]; vel.textContent = Number.isInteger(v) ? v : v.toFixed(1); }
+  });
+  Object.entries(angMap).forEach(([key, sid]) => {
+    const el  = document.getElementById(sid);
+    const vel = document.getElementById('v-' + sid.slice(2));
+    if (el)  el.value = S[key];
+    if (vel) vel.textContent = Math.round(S[key]) + '°';
+  });
+
+  document.querySelectorAll('.seg-btn[data-warp]').forEach(btn =>
+    btn.classList.toggle('on', parseFloat(btn.dataset.warp) === S.wtype));
+
+  needsText = true; S.dirty = true;
+});
+
+// ─────────────────────────────────────────────────────────────
+//  RESET
+// ─────────────────────────────────────────────────────────────
+const DEFAULTS = {
+  text:'Preply', warp:0, wfreq:5, wtype:0,
+  glitch:0, glitchv:0, frag:0, tile:0, flip:0, wide:50,
+  spacing:-2,
+  echo:0, echoAng:45,
+  rep:0, repAng:45, repStep:50,
+  outline:0, rgb:0, rgbAng:0, noise:0, blur:0, pixel:0,
+  copy:0, copyAng:45,
+  xtrude:0, xtrudeAng:-90,
+  dots:0, grid:0, diag:0, diagAng:45,
+  fg:'#000000', bg:'#ffffff',
+  anim:false, speed:1.0,
+  panX:0, panY:0
+};
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  Object.assign(S, DEFAULTS);
+  S.time = 0;
+
+  document.getElementById('text-inp').value = S.text;
+
+  const map = {
+    warp:'s-warp', wfreq:'s-wfreq', glitch:'s-glitch', glitchv:'s-glitchv', frag:'s-frag', tile:'s-tile',
+    flip:'s-flip', wide:'s-wide', spacing:'s-spacing',
+    echo:'s-echo', rep:'s-rep', repStep:'s-rep-step',
+    rgb:'s-rgb', noise:'s-noise', blur:'s-blur', pixel:'s-pixel', copy:'s-copy', xtrude:'s-xtrude',
+    dots:'s-dots', grid:'s-grid', diag:'s-diag',
+    speed:'s-speed'
+  };
+  const angMap = { echoAng:'s-echo-ang', repAng:'s-rep-ang', copyAng:'s-copy-ang', xtrudeAng:'s-xtrude-ang', rgbAng:'s-rgb-ang', diagAng:'s-diag-ang' };
+  Object.entries(map).forEach(([key, sid]) => {
+    const el  = document.getElementById(sid);
+    const vel = document.getElementById('v-' + sid.slice(2));
+    if (el)  el.value = S[key];
+    if (vel) { const v = S[key]; vel.textContent = Number.isInteger(v) ? v : v.toFixed(1); }
+  });
+  Object.entries(angMap).forEach(([key, sid]) => {
+    const el  = document.getElementById(sid);
+    const vel = document.getElementById('v-' + sid.slice(2));
+    if (el)  el.value = S[key];
+    if (vel) vel.textContent = Math.round(S[key]) + '°';
+  });
+
+  document.querySelectorAll('.seg-btn[data-warp]').forEach(btn =>
+    btn.classList.toggle('on', parseFloat(btn.dataset.warp) === S.wtype));
+
+  // Reset color swatches
+  ['fg', 'bg'].forEach(role => {
+    const cont = document.getElementById(role + '-sw');
+    cont.querySelectorAll('.swatch').forEach(s => s.classList.remove('on'));
+    const sw = cont.querySelector(`[data-c="${S[role]}"]`);
+    if (sw) sw.classList.add('on');
+    const pick = document.getElementById(role + '-pick');
+    if (pick) pick.value = S[role];
+  });
+  document.getElementById('tog-anim').classList.toggle('on', S.anim);
+  document.getElementById('btn-export-gif').disabled = !S.anim;
+
+  needsText = true; S.dirty = true;
+});
+
+
+// ─────────────────────────────────────────────────────────────
+//  EXPORT
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btn-export').addEventListener('click', async () => {
+  const ec = document.createElement('canvas');
+  ec.width = W; ec.height = H;
+  const ectx = ec.getContext('2d');
+  ectx.drawImage(glCvs, 0, 0);
+  ectx.drawImage(ovCvs, 0, 0);
+
+  // Use showSaveFilePicker where supported; fall back to auto-download
+  if (window.showSaveFilePicker) {
+    try {
+      const fh = await window.showSaveFilePicker({
+        suggestedName: 'distortion.png',
+        types: [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }]
+      });
+      const writable = await fh.createWritable();
+      await new Promise((res, rej) => ec.toBlob(async blob => {
+        try { await writable.write(blob); await writable.close(); res(); }
+        catch (e) { rej(e); }
+      }, 'image/png'));
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error(e);
+    }
+  } else {
+    const a = document.createElement('a');
+    a.download = 'distortion.png';
+    a.href = ec.toDataURL('image/png');
+    a.click();
+  }
+});
+
+document.getElementById('btn-export-gif').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-export-gif');
+  btn.disabled = true;
+
+  // ── Step 1: open save dialog NOW while user gesture is still active ──
+  let fileHandle = null;
+  if (window.showSaveFilePicker) {
+    try {
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName: 'distortion.gif',
+        types: [{ description: 'GIF Animation', accept: { 'image/gif': ['.gif'] } }]
+      });
+    } catch(e) {
+      btn.disabled = false;
+      return; // user cancelled or browser blocked — bail out
+    }
+  }
+
+  // ── Step 2: load gifenc (pure-JS, no workers, no CORS) ──
+  if (!window._gifenc) {
+    try {
+      window._gifenc = await import('https://unpkg.com/gifenc@1.0.3/dist/gifenc.esm.js');
+    } catch(e) {
+      alert('Could not load GIF encoder. Check your internet connection.');
+      btn.disabled = false; return;
+    }
+  }
+  const { GIFEncoder, quantize, applyPalette } = window._gifenc;
+
+  // ── Step 3: capture + encode frames ──
+  const FPS    = 25;
+  const FRAMES = 5 * FPS;
+  const DELAY  = Math.round(1000 / FPS);
+
+  const prevTime = S.time;
+  const prevAnim = S.anim;
+  S.anim = false;
+
+  const ec   = document.createElement('canvas');
+  ec.width = W; ec.height = H;
+  const ectx = ec.getContext('2d', { willReadFrequently: true });
+
+  const encoder = GIFEncoder();
+
+  for (let f = 0; f < FRAMES; f++) {
+    S.time  = prevTime + (f / FPS) * S.speed;
+    S.dirty = true;
+    render();
+    ectx.clearRect(0, 0, W, H);
+    ectx.drawImage(glCvs, 0, 0);
+    ectx.drawImage(ovCvs, 0, 0);
+
+    const { data } = ectx.getImageData(0, 0, W, H);
+    const palette  = quantize(data, 256, { format: 'rgba4444' });
+    const index    = applyPalette(data, palette, 'rgba4444');
+    encoder.writeFrame(index, W, H, { palette, delay: DELAY });
+
+    btn.textContent = `Capturing ${f + 1}/${FRAMES}`;
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  S.time = prevTime;
+  S.anim = prevAnim;
+  S.dirty = true;
+  render();
+
+  btn.textContent = 'Saving…';
+  await new Promise(r => setTimeout(r, 0));
+
+  encoder.finish();
+  const blob = new Blob([encoder.bytes()], { type: 'image/gif' });
+
+  // ── Step 4: write to pre-obtained handle (no gesture needed now) ──
+  if (fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    } catch(e) { console.error('GIF save error', e); }
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.download = 'distortion.gif'; a.href = url; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  btn.textContent = 'Export GIF';
+  btn.disabled = false;
+});
+
+window.addEventListener('resize', resize);
+
+// ─────────────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────────────
+const pf = new FontFace('Platform', 'url(Platform-Medium.otf)');
+document.fonts.add(pf);
+function start() { resize(); requestAnimationFrame(loop); }
+pf.load().then(start).catch(() => { console.warn('Platform font unavailable'); start(); });
+</script>
+</body>
+</html>

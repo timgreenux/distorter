@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pattern Distorter</title>
+<title>Text Distortion</title>
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -74,6 +74,18 @@ html, body {
   font-variant-numeric: tabular-nums;
   min-width: 32px; text-align: right;
 }
+.dry-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.dry-row input[type=range] { flex: 1; }
+.dry-swatch {
+  width: 30px; height: 22px; min-width: 30px;
+  border-radius: 3px;
+  border: 2px solid transparent;
+  cursor: pointer; padding: 0; flex-shrink: 0;
+  transition: transform .1s, border-color .1s;
+}
+.dry-swatch:hover { transform: scale(1.12); }
 
 /* ── Slider ── */
 input[type=range] {
@@ -267,6 +279,18 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
           <span class="ctrl-val" id="v-spacing">0</span>
         </div>
         <input type="range" id="s-spacing" min="-5" max="60" value="-2" step="0.5">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <span class="ctrl-name">Dry Overlay</span>
+          <span class="ctrl-val" id="v-dry">0</span>
+        </div>
+        <div class="dry-row">
+          <input type="range" id="s-dry" min="0" max="100" value="0" step="1">
+          <button class="dry-swatch" id="dry-swatch-btn" title="Overlay colour"></button>
+          <input type="color" id="dry-color-pick" value="#ffffff" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;">
+        </div>
       </div>
 
       <div class="div"></div>
@@ -583,6 +607,7 @@ const S = {
   warp: 0, wfreq: 5, wtype: 0,
   glitch: 0, glitchv: 0, frag: 0, tile: 0, flip: 0, wide: 50,
   spacing: -2,
+  dry: 0,       dryCol: '#ffffff',
   echo: 0,    echoAng: 45,
   rep: 0,     repAng:  45,  repStep: 50,
   outline: 0, rgb: 0, rgbAng: 0, noise: 0, blur: 0, pixel: 0,
@@ -885,6 +910,9 @@ uniform float u_noise;
 uniform float u_blur;
 uniform float u_pixel;
 uniform float u_time2;
+uniform float u_dry;
+uniform vec3  u_dry_col;
+uniform sampler2D u_dry_tex;
 uniform vec3  u_fg;
 uniform vec3  u_bg;
 varying vec2  v_uv;
@@ -963,6 +991,12 @@ void main() {
     mix(u_bg.g, u_fg.g, gM),
     mix(u_bg.b, u_fg.b, bM)
   );
+  // ── Dry Overlay — blend original clean text on top ────────
+  if (u_dry > 0.0) {
+    float origMask = texture2D(u_dry_tex, v_uv).r;
+    col = mix(col, u_dry_col, origMask * u_dry * 0.01);
+  }
+
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
@@ -1034,9 +1068,10 @@ gl.uniform1i(U.u_tex, 0);
 
 gl.useProgram(prog2);
 const U2 = {};
-['u_mask','u_res','u_outline','u_noise','u_blur','u_pixel','u_time2','u_fg','u_bg']
+['u_mask','u_res','u_outline','u_noise','u_blur','u_pixel','u_time2','u_dry','u_dry_tex','u_dry_col','u_fg','u_bg']
   .forEach(n => U2[n] = gl.getUniformLocation(prog2, n));
-gl.uniform1i(U2.u_mask, 1);
+gl.uniform1i(U2.u_mask,    1);
+gl.uniform1i(U2.u_dry_tex, 0); // tex (original text) is always on unit 0
 gl.useProgram(prog);
 
 function hexRgb(h) {
@@ -1218,6 +1253,8 @@ function render() {
   gl.uniform1f(U2.u_outline, S.outline);
   gl.uniform1f(U2.u_noise,   S.noise);
   gl.uniform1f(U2.u_time2,   S.anim ? S.time : 0.0);
+  gl.uniform1f(U2.u_dry,     S.dry);
+  { const dc = hexRgb(S.dryCol); gl.uniform3f(U2.u_dry_col, dc[0], dc[1], dc[2]); }
   gl.uniform1f(U2.u_blur,    S.blur);
   gl.uniform1f(U2.u_pixel,   S.pixel);
   gl.uniform3fv(U2.u_fg,     hexRgb(S.fg));
@@ -1269,6 +1306,19 @@ bindSlider('s-tile',     'tile');
 bindSlider('s-flip',     'flip', true);
 bindSlider('s-wide',     'wide');
 bindSlider('s-spacing',  'spacing', true);
+bindSlider('s-dry',      'dry');
+// ── Dry Overlay colour swatch ──────────────────────────────────────
+{
+  const swatchBtn = document.getElementById('dry-swatch-btn');
+  const colorPick = document.getElementById('dry-color-pick');
+  swatchBtn.style.background = S.dryCol;
+  swatchBtn.addEventListener('click', () => colorPick.click());
+  colorPick.addEventListener('input', () => {
+    S.dryCol = colorPick.value;
+    swatchBtn.style.background = S.dryCol;
+    S.dirty = true;
+  });
+}
 bindSlider('s-echo',     'echo');
 bindSlider('s-echo-ang', 'echoAng', false, '°');
 bindSlider('s-rep',      'rep');
@@ -1398,7 +1448,7 @@ document.getElementById('btn-rand').addEventListener('click', () => {
   // Sync all sliders + value displays
   const map = {
     warp:'s-warp', wfreq:'s-wfreq', glitch:'s-glitch', glitchv:'s-glitchv', frag:'s-frag', tile:'s-tile',
-    flip:'s-flip', wide:'s-wide', spacing:'s-spacing',
+    flip:'s-flip', wide:'s-wide', spacing:'s-spacing', dry:'s-dry',
     echo:'s-echo', rep:'s-rep', repStep:'s-rep-step',
     rgb:'s-rgb', noise:'s-noise', blur:'s-blur', pixel:'s-pixel', copy:'s-copy', xtrude:'s-xtrude',
     dots:'s-dots', grid:'s-grid', diag:'s-diag'
@@ -1429,7 +1479,7 @@ document.getElementById('btn-rand').addEventListener('click', () => {
 const DEFAULTS = {
   text:'hello', warp:0, wfreq:5, wtype:0,
   glitch:0, glitchv:0, frag:0, tile:0, flip:0, wide:50,
-  spacing:-2,
+  spacing:-2, dry:0, dryCol:'#ffffff',
   echo:0, echoAng:45,
   rep:0, repAng:45, repStep:50,
   outline:0, rgb:0, rgbAng:0, noise:0, blur:0, pixel:0,
@@ -1478,6 +1528,12 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   });
   document.getElementById('tog-anim').classList.toggle('on', S.anim);
   document.getElementById('btn-export-gif').disabled = !S.anim;
+
+  // Reset dry overlay swatch
+  { const btn = document.getElementById('dry-swatch-btn');
+    const pick = document.getElementById('dry-color-pick');
+    if (btn) btn.style.background = S.dryCol;
+    if (pick) pick.value = S.dryCol; }
 
   needsText = true; S.dirty = true;
 });
@@ -1552,6 +1608,11 @@ function animatedReset() {
       });
       document.getElementById('tog-anim').classList.toggle('on', S.anim);
       document.getElementById('btn-export-gif').disabled = !S.anim;
+      S.dryCol = DEFAULTS.dryCol;
+      { const btn = document.getElementById('dry-swatch-btn');
+        const pick = document.getElementById('dry-color-pick');
+        if (btn) btn.style.background = S.dryCol;
+        if (pick) pick.value = S.dryCol; }
       needsText = true; S.dirty = true;
     }
   }

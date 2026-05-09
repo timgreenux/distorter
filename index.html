@@ -175,6 +175,7 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
 
 /* ── Buttons ── */
 .btn-group { display: flex; flex-direction: column; gap: 8px; }
+.mob-only  { display: none; }
 .btn {
   padding: 10px 12px; border-radius: 4px; border: none;
   font-family: 'Platform', sans-serif;
@@ -220,6 +221,9 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
 
   /* Hide desktop flex spacers */
   .mob-spacer { display: none; }
+  /* Show mobile-only buttons, hide the left panel's copies */
+  .mob-only { display: block; }
+  #panel-left .btn-group { display: none; }
   .mob-spacer { display: none; }
 
   /* Bigger touch targets */
@@ -368,6 +372,12 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
         </div>
       </div>
 
+      <div class="mob-spacer" style="flex:1"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-w" id="btn-rand">Randomize</button>
+        <button class="btn btn-d" id="btn-reset">Reset to defaults</button>
+      </div>
 
     </div>
   </aside>
@@ -537,8 +547,8 @@ input[type=range].sub-rng::-webkit-slider-thumb:hover { background: #999; }
       <div class="mob-spacer" style="flex:1"></div>
 
       <div class="btn-group">
-        <button class="btn btn-w" id="btn-rand">Randomize</button>
-        <button class="btn btn-d" id="btn-reset">Reset to defaults</button>
+        <button class="btn btn-w mob-only" id="btn-rand-mob">Randomize</button>
+        <button class="btn btn-d mob-only" id="btn-reset-mob">Reset to defaults</button>
         <button class="btn btn-d" id="btn-export">Export PNG</button>
         <button class="btn btn-d" id="btn-export-gif" disabled>Export GIF</button>
       </div>
@@ -1455,6 +1465,12 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 
   needsText = true; S.dirty = true;
 });
+
+// Mobile duplicate button wiring
+document.getElementById('btn-rand-mob').addEventListener('click', () =>
+  document.getElementById('btn-rand').click());
+document.getElementById('btn-reset-mob').addEventListener('click', () =>
+  document.getElementById('btn-reset').click());
 
 
 // ─────────────────────────────────────────────────────────────

@@ -861,9 +861,11 @@ void main() {
       if (float(i) > u_rep * 0.09) break;
       float fi  = float(i);
       vec2  off = rDir * fi * rStep;
-      rM = max(rM, samp(du + off + vec2( shft, 0.0)));
-      gM = max(gM, samp(du + off));
-      bM = max(bM, samp(du + off - vec2( shft, 0.0)));
+      // fract-wrap so copies tile seamlessly instead of clipping at canvas edge
+      vec2  ru  = fract(du + off);
+      rM = max(rM, texture2D(u_tex, fract(ru + vec2( shft, 0.0))).r);
+      gM = max(gM, texture2D(u_tex, ru).r);
+      bM = max(bM, texture2D(u_tex, fract(ru - vec2( shft, 0.0))).r);
     }
   }
 
